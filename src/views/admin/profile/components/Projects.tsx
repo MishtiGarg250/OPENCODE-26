@@ -7,25 +7,23 @@ import {
   Flex,
   Icon,
 } from '@chakra-ui/react';
-import { opencodeTokens } from '../../../../theme/opencode-tokens';
 import Project from 'views/admin/profile/components/Project';
 import { PullRequest } from 'app/user/profile/page';
-import { FaInbox } from 'react-icons/fa';
-import { Star } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Projects(props: { PRs: PullRequest[] }) {
-  const textPrimary = opencodeTokens.colors.text.primary;
-  const textSecondary = opencodeTokens.colors.text.secondary;
+  const textPrimary = 'var(--fg)';
+  const textSecondary = 'var(--muted)';
 
   return (
     <Box>
       {/* Header */}
-      <Box mb="24px">
+      <Box mb="20px">
         <Text
           color={textPrimary}
           fontWeight="800"
-          fontSize="22px"
+          fontSize="20px"
           mb="4px"
         >
           Recent Contributions
@@ -50,17 +48,15 @@ export default function Projects(props: { PRs: PullRequest[] }) {
           p="44px"
           borderRadius="16px"
           textAlign="center"
-          border={`1px dashed ${opencodeTokens.colors.border.medium}`}
-          borderColor={opencodeTokens.colors.border.medium}
+          border="1px dashed var(--border)"
+          bg="var(--card-soft)"
           position="relative"
           overflow="hidden"
         >
-          
-
           <Icon
-            as={FaInbox}
+            as={Inbox}
             boxSize="36px"
-            color={textSecondary}
+            color="var(--accent)"
             mb="14px"
           />
           <Text fontSize="lg" fontWeight="700" color={textPrimary}>
@@ -68,7 +64,7 @@ export default function Projects(props: { PRs: PullRequest[] }) {
           </Text>
           <Text fontSize="sm" color={textSecondary} mt="6px">
             Start contributing to see your history here.{' '}
-            <Link href="/user/repos" style={{ color: '#B88784', textDecoration: 'underline', fontWeight: 600 }}>
+            <Link href="/user/repos" style={{ color: 'var(--accent)', textDecoration: 'underline', fontWeight: 600 }}>
               Explore Issues
             </Link>
           </Text>

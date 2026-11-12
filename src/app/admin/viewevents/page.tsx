@@ -1,11 +1,17 @@
 'use client';
 
-import { Box, Button, SimpleGrid, useToast, Text, Flex } from '@chakra-ui/react';
+import { Box, Button, SimpleGrid, useToast, Text, Flex, Badge, Icon } from '@chakra-ui/react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CalendarDays, Star, Pencil } from 'lucide-react';
 import NFT from '../../../components/card/NFT';
 import { RingLoader } from 'react-spinners';
+import { useFeatures } from 'contexts/FeaturesContext';
+import { resolveImageUrl, getEventCoverImage, getEventLogoImage } from 'utils/eventImages';
+import { updateFlagshipEvent } from 'api/admin/admin';
+import { getApiBase } from 'utils/apiBase';
+import EditEventModal from 'components/modals/EditEventModal';
 
 // 1. Define Types
 interface EventItem {
@@ -26,8 +32,11 @@ export default function Viewevents() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [updatingEventName, setUpdatingEventName] = useState<string | null>(null);
+  const [editingEventName, setEditingEventName] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
+  const { features, setFlagshipEvent } = useFeatures();
 
   // Helper to decode JWT
   const parseJwt = (token: string | null): JWTPayload | null => {
@@ -61,15 +70,16 @@ export default function Viewevents() {
     // Redirect if not admin
     if (!payload?.roles?.isAdmin) {
       toast({ title: 'Only admin can view events', status: 'error', isClosable: true });
-      router.push('/user/home');
+      router.push('/user/events');
       return;
     }
 
     // Fetch Data
     const fetchData = async () => {
       try {
+        const baseUrl = getApiBase();
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/events/`
+          `${baseUrl}/api/v1/events/`
         );
         setEvents(response.data.data || []);
       } catch (error) {
@@ -89,8 +99,9 @@ export default function Viewevents() {
     const token = localStorage.getItem('token');
 
     try {
+      const baseUrl = getApiBase();
       await axios.delete(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/admin/delete/${eventName}`,
+        `${baseUrl}/api/v1/admin/delete/${encodeURIComponent(eventName)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -106,20 +117,96 @@ export default function Viewevents() {
     }
   };
 
+  const handleSetFlagship = async (eventName: string) => {
+    setUpdatingEventName(eventName);
+    try {
+      await updateFlagshipEvent(eventName, true);
+      await setFlagshipEvent(eventName);
+      setEvents((prev) =>
+        prev.map((e) => ({
+          ...e,
+          isFlagship: e.name.toLowerCase() === eventName.toLowerCase(),
+        }))
+      );
+      toast({
+        title: 'Flagship Event Updated',
+        description: `"${eventName}" is now the active flagship event.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error: any) {
+      console.error('Failed to update flagship event:', error);
+      toast({
+        title: 'Failed to update flagship event',
+        description: error?.message || 'Could not communicate with backend server.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setUpdatingEventName(null);
+    }
+  };
+
+  const handleRemoveFlagship = async (eventName: string) => {
+    setUpdatingEventName(eventName);
+    try {
+      await updateFlagshipEvent(eventName, false);
+      await setFlagshipEvent(null);
+      setEvents((prev) =>
+        prev.map((e) => (e.name.toLowerCase() === eventName.toLowerCase() ? { ...e, isFlagship: false } : e))
+      );
+      toast({
+        title: 'Flagship Event Removed',
+        description: `"${eventName}" is no longer the flagship event.`,
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error: any) {
+      console.error('Failed to remove flagship event:', error);
+      toast({
+        title: 'Failed to remove flagship event',
+        description: error?.message || 'Could not communicate with backend server.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setUpdatingEventName(null);
+    }
+  };
+
+  const handleEditSuccess = (updatedEvent: any) => {
+    if (!updatedEvent) return;
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.name.toLowerCase() === editingEventName?.toLowerCase()
+          ? { ...e, ...updatedEvent }
+          : e
+      )
+    );
+  };
+
   if (!isMounted) return null;
   if (isLoading)
     return (
       <Flex minH="100vh" align="center" justify="center">
-        <RingLoader color="#755FFF" size={52} />
+        <RingLoader color="var(--accent)" size={52} />
       </Flex>
     );
 
   if (events.length === 0) {
     return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }} textAlign="center">
-        <Text fontSize="2xl" fontWeight="700" color="gray.500">
-          No Events Found
-        </Text>
+      <Box pt={{ base: '130px', md: '80px', xl: '80px' }} px="20px" maxW="560px" mx="auto">
+        <div className="glass-panel oc-empty">
+          <CalendarDays size={32} />
+          <h2 style={{ fontFamily: 'var(--f-display)', fontSize: '1.25rem', fontWeight: 600 }}>
+            No Events Found
+          </h2>
+          <p>There are currently no active or archived events in the system.</p>
+        </div>
       </Box>
     );
   }
@@ -130,28 +217,103 @@ export default function Viewevents() {
         columns={{ base: 1, md: 2, lg: 3 }}
         spacing={{ base: '20px', md: '28px', lg: '36px' }}
         justifyItems="center"
-        px={{ base: '12px', md: '20px', lg: '40px' }}
+        px={{ base: '8px', sm: '16px', md: '20px', lg: '40px' }}
       >
-        {events.map((item, i) => (
-          <Box key={i} w={{ base: '320px', md: '360px', lg: '420px' }}>
-            <NFT
-              name={item.name}
-              des={item.description}
-              image={item.logoImageURL}
-              download={`/admin/viewevents/${encodeURIComponent(item.name)}`}
-            />
-            <Box mt={3} display="flex" justifyContent="center">
-              <Button
-                colorScheme="red"
-                size="sm"
-                onClick={() => deleteHandler(item.name)}
-              >
-                DELETE EVENT
-              </Button>
+        {events.map((item, i) => {
+          const isFlagship = item.isFlagship === true || features?.flagshipEvent?.toLowerCase() === item.name?.toLowerCase();
+          const bannerImg = resolveImageUrl(
+            getEventCoverImage(item),
+            resolveImageUrl(getEventLogoImage(item), '/images/kyoto-evening.png'),
+          );
+          const logoImg = resolveImageUrl(getEventLogoImage(item));
+
+          return (
+            <Box key={i} w="100%" maxW={{ base: '100%', sm: '360px', lg: '420px' }} position="relative">
+              {isFlagship && (
+                <Badge
+                  colorScheme="yellow"
+                  position="absolute"
+                  top="-12px"
+                  right="16px"
+                  zIndex={2}
+                  px="12px"
+                  py="4px"
+                  borderRadius="full"
+                  boxShadow="0 4px 12px rgba(234, 179, 8, 0.35)"
+                  fontSize="xs"
+                  fontWeight="bold"
+                  display="inline-flex"
+                  alignItems="center"
+                  gap="4px"
+                >
+                  <Icon as={Star} boxSize={3.5} fill="currentColor" /> Flagship Event
+                </Badge>
+              )}
+
+              <NFT
+                name={item.name}
+                des={item.description}
+                image={bannerImg}
+                logoImage={logoImg}
+                download={`/user/leaderboard/${encodeURIComponent(item.name)}`}
+              />
+
+              <Flex mt={3} gap={2} justify="center" align="center" wrap="wrap">
+                {isFlagship ? (
+                  <Button
+                    size="sm"
+                    colorScheme="yellow"
+                    variant="solid"
+                    leftIcon={<Icon as={Star} fill="currentColor" />}
+                    isLoading={updatingEventName === item.name}
+                    isDisabled={updatingEventName !== null}
+                    onClick={() => handleRemoveFlagship(item.name)}
+                  >
+                    Remove Flagship
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<Icon as={Star} />}
+                    isLoading={updatingEventName === item.name}
+                    isDisabled={updatingEventName !== null}
+                    onClick={() => handleSetFlagship(item.name)}
+                  >
+                    Make Flagship
+                  </Button>
+                )}
+                <Button
+                  colorScheme="purple"
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<Icon as={Pencil} />}
+                  onClick={() => setEditingEventName(item.name)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  colorScheme="red"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => deleteHandler(item.name)}
+                >
+                  Delete
+                </Button>
+              </Flex>
             </Box>
-          </Box>
-        ))}
+          );
+        })}
       </SimpleGrid>
+
+      {editingEventName && (
+        <EditEventModal
+          isOpen={!!editingEventName}
+          onClose={() => setEditingEventName(null)}
+          eventName={editingEventName}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </Box>
   );
 }

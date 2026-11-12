@@ -48,6 +48,7 @@ export default extendTheme(
 					}
 				}
 			},
+<<<<<<< HEAD
 			Button: {
 				baseStyle: {
 					borderRadius: '9999px',
@@ -85,6 +86,19 @@ export default extendTheme(
 					}
 				}
 			}
+=======
+			Skeleton: {
+				defaultProps: {
+					startColor: 'var(--card-soft)',
+					endColor: 'var(--border)',
+				},
+				baseStyle: {
+					borderRadius: 'var(--r)',
+					startColor: 'var(--card-soft)',
+					endColor: 'var(--border)',
+				},
+			},
+>>>>>>> 41a2e192442375ced406f4735c79bbc839efac21
 		}
 	},
 	globalStyles,

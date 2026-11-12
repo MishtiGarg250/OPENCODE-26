@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Code2, Users, Trophy, GitPullRequest, Globe, Zap, Heart } from 'lucide-react';
+import { Code2, Users, Trophy, ArrowRight } from 'lucide-react';
 import styles from './landing-content.module.css';
+import { getApiBase } from 'utils/apiBase';
 
 export default function LandingContent() {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -64,7 +65,7 @@ export default function LandingContent() {
           <div className={styles.statNumber}>1.2k+</div>
           <div className={styles.statLabel}>Participants</div>
         </div>
-        <div className={styles.statItem}>
+        <div className={`${styles.statItem} ${styles.statItemPrimary}`}>
           <div className={styles.statNumber}>165</div>
           <div className={styles.statLabel}>Repositories</div>
         </div>
@@ -81,26 +82,26 @@ export default function LandingContent() {
           Build something that matters.
         </h2>
         <p className={`${styles.sectionDescription} ${styles.fadeInUp}`}>
-          OpenCode is a month-long open-source celebration where students collaborate with maintainers to build, fix, and improve real-world projects.
+          GeekHaven is a month-long open-source celebration where students collaborate with maintainers to build, fix, and improve real-world projects.
         </p>
 
         <div className={`${styles.featuresGrid} ${styles.fadeInUp}`}>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}><Code2 size={22} strokeWidth={1.5} /></div>
+          <div className={`${styles.featureCard} ${styles.featureCardTeal}`}>
+            <div className={styles.featureIcon}><Code2 size={20} /></div>
             <h3 className={styles.featureTitle}>Real-World Coding</h3>
             <p className={styles.featureDescription}>
-              Step out of the classroom and dive into production codebases. Fix bugs, add features, and learn best practices.
+               Step out of the classroom and dive into production codebases. Fix bugs, add features, and learn best practices.
             </p>
           </div>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}><Users size={22} strokeWidth={1.5} /></div>
+          <div className={`${styles.featureCard} ${styles.featureCardCyan}`}>
+            <div className={styles.featureIcon}><Users size={20} /></div>
             <h3 className={styles.featureTitle}>Vibrant Community</h3>
             <p className={styles.featureDescription}>
               Join a network of passionate developers. Get mentored by experienced maintainers and collaborate with peers.
             </p>
           </div>
-          <div className={styles.featureCard}>
-            <div className={styles.featureIcon}><Trophy size={22} strokeWidth={1.5} /></div>
+          <div className={`${styles.featureCard} ${styles.featureCardAmber}`}>
+            <div className={styles.featureIcon}><Trophy size={19} /></div>
             <h3 className={styles.featureTitle}>Earn Rewards</h3>
             <p className={styles.featureDescription}>
               Every merged PR earns you points. Climb the leaderboard, unlock exclusive badges, and win exciting prizes.
@@ -122,7 +123,7 @@ export default function LandingContent() {
         <div className={`${styles.timeline} ${styles.fadeInUp}`}>
           <div className={styles.timelineItem} data-active="true">
             <div className={styles.timelineDot} />
-            <div className={styles.timelineDate}>Phase 1 — Registration</div>
+            <div className={styles.timelineDate}>Phase 1 - Registration</div>
             <h3 className={styles.timelineTitle}>The Awakening</h3>
             <p className={styles.timelineDescription}>
               Sign up, set up your GitHub profile, and get ready. Maintainers prepare their repositories with starter issues for beginners.
@@ -130,7 +131,7 @@ export default function LandingContent() {
           </div>
           <div className={styles.timelineItem}>
             <div className={styles.timelineDot} />
-            <div className={styles.timelineDate}>Phase 2 — Week 1 & 2</div>
+            <div className={styles.timelineDate}>Phase 2 - Week 1 & 2</div>
             <h3 className={styles.timelineTitle}>First Blood</h3>
             <p className={styles.timelineDescription}>
               The coding begins! Start with &quot;good first issues&quot;, learn the contribution workflow, and get your first PR merged.
@@ -138,15 +139,15 @@ export default function LandingContent() {
           </div>
           <div className={styles.timelineItem}>
             <div className={styles.timelineDot} />
-            <div className={styles.timelineDate}>Phase 3 — Week 3 & 4</div>
+            <div className={styles.timelineDate}>Phase 3 - Week 3 & 4</div>
             <h3 className={styles.timelineTitle}>Deep Dive</h3>
             <p className={styles.timelineDescription}>
               Tackle complex features, optimize performance, and collaborate on architecture. The leaderboard heats up.
             </p>
           </div>
-          <div className={styles.timelineItem}>
+          <div className={`${styles.timelineItem} ${styles.timelineItemGold}`}>
             <div className={styles.timelineDot} />
-            <div className={styles.timelineDate}>Phase 4 — Closing</div>
+            <div className={styles.timelineDate}>Phase 4 - Closing</div>
             <h3 className={styles.timelineTitle}>The Sakura Festival</h3>
             <p className={styles.timelineDescription}>
               Closing ceremony, final leaderboard reveal, project showcases, and prize distribution.
@@ -163,8 +164,8 @@ export default function LandingContent() {
         <p className={styles.joinDescription}>
           Join thousands of developers in the largest open-source celebration. Your first contribution is just a click away.
         </p>
-        <Link href="/auth/register" className={styles.joinButton}>
-          Join OpenCode 2026 <ArrowRight size={18} />
+        <Link href={`${getApiBase()}/api/v1/auth/github`} className={styles.joinButton}>
+          Join GeekHaven 2026 <ArrowRight size={14} />
         </Link>
       </section>
     </div>

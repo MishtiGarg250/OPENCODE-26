@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Flex } from '@chakra-ui/react';
+import { RingLoader } from 'react-spinners';
+import { parseJwt } from 'utils/jwt';
 
 export interface PullRequest {
   prNumber: number;
@@ -16,28 +19,55 @@ export interface PullRequest {
 
 export interface ProfileData {
   name: string;
-  email: string;
-  college: string;
-  avatarUrl: string;
+  email?: string;
+  college?: string;
+  avatarUrl?: string;
   githubId: string;
-  discordId: string;
+  discordId?: string;
   gender?: string;
   year?: string;
+  graduationYear?: number | string;
+  isMentor?: boolean;
+  isAdmin?: boolean;
   PR: PullRequest[]; 
   prMerged: number;
   points: number;
-  rank: number;
+  totalPRs?: number;
+  rank?: number | null;
 }
 
 export default function ProfileSelf() {
+  const router = useRouter();
 
   useEffect(() => {
-    const githubID = JSON.parse(localStorage.getItem('user') ?? '{}')?.githubId;
- 
-    // console.log('GitHub ID from localStorage:', githubID);
+    try {
+      const cached = JSON.parse(localStorage.getItem('user') ?? '{}');
+      let githubID = cached?.githubId;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
-    if (githubID) redirect(`/user/profile/${githubID}`);
-    
-    else redirect('/auth/sign-in');
-  }, []);
+      if (!githubID && token) {
+        const payload = parseJwt(token);
+        if (payload?.githubId) {
+          githubID = payload.githubId;
+        }
+      }
+
+      if (githubID) {
+        router.replace(`/user/profile/${encodeURIComponent(githubID)}`);
+      } else if (token) {
+        router.replace('/auth/register');
+      } else {
+        router.replace('/auth/sign-in');
+      }
+    } catch {
+      router.replace('/auth/sign-in');
+    }
+  }, [router]);
+
+  return (
+    <Flex minH="60vh" align="center" justify="center">
+      <RingLoader color="var(--accent)" size={48} />
+    </Flex>
+  );
 }
+

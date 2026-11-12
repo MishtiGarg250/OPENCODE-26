@@ -20,13 +20,29 @@ export default function GlobalSakuraBackground() {
     pointerY: 0,
   });
   const [graphicsUnavailable, setGraphicsUnavailable] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
 
   // Landing page ('/') already has its own interactive petal scene in OpenCodeExperience
   const isLandingPage = pathname === '/';
 
   // Three.js 3D WebGL Petals
   useEffect(() => {
-    if (!enabled || isLandingPage || graphicsUnavailable || !canvasHost.current) {
+    if (!enabled || isLandingPage || graphicsUnavailable || !canvasHost.current || prefersReducedMotion) {
       if (scene.current) {
         scene.current.dispose();
         scene.current = null;
@@ -45,7 +61,7 @@ export default function GlobalSakuraBackground() {
           controller = createPetalScene(
             host,
             parameters.current,
-            'high',
+            'auto',
             () => setGraphicsUnavailable(true)
           );
           scene.current = controller;
@@ -63,14 +79,21 @@ export default function GlobalSakuraBackground() {
       controller?.dispose();
       scene.current = null;
     };
-  }, [enabled, isLandingPage, graphicsUnavailable]);
+  }, [enabled, isLandingPage, graphicsUnavailable, prefersReducedMotion]);
 
-  // Pointer tracking for wind effect
+  // Pointer tracking for wind effect - throttled to display refresh rate
   useEffect(() => {
+    let ticking = false;
     const handleMouseMove = (e: MouseEvent) => {
       if (parameters.current.paused || !matchMedia('(pointer: fine)').matches) return;
-      parameters.current.pointerX = (e.clientX / window.innerWidth) * 2 - 1;
-      parameters.current.pointerY = (e.clientY / window.innerHeight) * 2 - 1;
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          parameters.current.pointerX = (e.clientX / window.innerWidth) * 2 - 1;
+          parameters.current.pointerY = (e.clientY / window.innerHeight) * 2 - 1;
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     const handleMouseLeave = () => {
@@ -78,8 +101,8 @@ export default function GlobalSakuraBackground() {
       parameters.current.pointerY = 0;
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('mouseleave', handleMouseLeave, { passive: true });
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
@@ -89,13 +112,13 @@ export default function GlobalSakuraBackground() {
 
   // 2D Canvas Fallback in case WebGL is unavailable
   useEffect(() => {
-    if (!enabled || isLandingPage || !graphicsUnavailable || !fallbackCanvasRef.current) return;
+    if (!enabled || isLandingPage || !graphicsUnavailable || !fallbackCanvasRef.current || prefersReducedMotion) return;
 
     const canvas = fallbackCanvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animId: number;
+    let animId: number = 0;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -103,21 +126,26 @@ export default function GlobalSakuraBackground() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
-    const petalCount = Math.min(60, Math.floor(width / 25));
+    const isLightMode = document.documentElement.classList.contains('chakra-ui-light');
+    const petalCount = isLightMode ? 14 : Math.min(35, Math.floor(width / 45));
     const petals = Array.from({ length: petalCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 8 + 6,
-      speedX: Math.random() * 1.5 + 0.5,
-      speedY: Math.random() * 1.2 + 0.8,
+      size: Math.random() * 7 + 5, // Restored to original size (5px - 12px)
+      speedX: Math.random() * 1.0 + 0.4,
+      speedY: Math.random() * 0.9 + 0.5,
       rotation: Math.random() * 360,
-      rotSpeed: (Math.random() - 0.5) * 2,
-      opacity: Math.random() * 0.4 + 0.5,
+      rotSpeed: (Math.random() - 0.5) * 1.5,
+      opacity: Math.random() * 0.35 + 0.45,
     }));
 
     const render = () => {
+      if (document.hidden) {
+        animId = 0;
+        return;
+      }
       ctx.clearRect(0, 0, width, height);
 
       for (const p of petals) {
@@ -131,7 +159,7 @@ export default function GlobalSakuraBackground() {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate((p.rotation * Math.PI) / 180);
-        ctx.fillStyle = `rgba(244, 167, 185, ${p.opacity})`;
+        ctx.fillStyle = `rgba(88, 185, 154, ${p.opacity})`;
 
         // Draw curved petal
         ctx.beginPath();
@@ -145,27 +173,31 @@ export default function GlobalSakuraBackground() {
       animId = requestAnimationFrame(render);
     };
 
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (animId) cancelAnimationFrame(animId);
+        animId = 0;
+      } else if (!animId) {
+        animId = requestAnimationFrame(render);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
     animId = requestAnimationFrame(render);
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [enabled, isLandingPage, graphicsUnavailable]);
+  }, [enabled, isLandingPage, graphicsUnavailable, prefersReducedMotion]);
 
-  if (!enabled || isLandingPage) return null;
+  if (!enabled || isLandingPage || prefersReducedMotion) return null;
 
   return (
     <div
       aria-hidden="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 15, // Floating above backgrounds and cards, below navbars & modals
-        pointerEvents: 'none',
-        opacity: 0.95,
-        background: 'transparent',
-      }}
+      className="global-sakura-host"
     >
       {graphicsUnavailable ? (
         <canvas

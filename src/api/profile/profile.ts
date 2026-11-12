@@ -1,3 +1,6 @@
+import { FetchedLeaderboard } from 'api/leaderboard/leaderboard';
+import { getApiBase } from 'utils/apiBase';
+
 export async function fetchLoggedInBasicDetails() {
   if (typeof window === 'undefined') return null;
 
@@ -7,8 +10,9 @@ export async function fetchLoggedInBasicDetails() {
     console.warn('No token found, redirecting to login.');
     return null;
   } else {
+    const eventName = process.env.NEXT_PUBLIC_EVENT_NAME || 'Opencode';
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/participant/`,
+      `${getApiBase()}/api/v1/participant/?eventName=${encodeURIComponent(eventName)}`,
       {
         method: 'GET',
         headers: {
@@ -28,45 +32,64 @@ export async function fetchLoggedInBasicDetails() {
 }
 
 export async function sendRegData(formData: any) {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/register`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      },
-    );
-
-    if (response.status === 200) {
-      // console.log('Success!');
-    } else {
-      console.error('Registration failed:', response.statusText);
+  let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!token && typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    token = params.get('token');
+    if (token) {
+      localStorage.setItem('token', token);
     }
-
-    const data = await response.json();
-    // console.log(data);
-    return data;
-  } catch (error: any) {
-    console.error('Error sending registration data:', error.message);
   }
+
+  // Ensure avatarUrl is never missing (Prisma User model requires avatarUrl: String)
+  const avatarUrl =
+    formData.avatarUrl?.trim() ||
+    (formData.githubId ? `https://github.com/${formData.githubId}.png` : 'https://github.com/identicons/user.png');
+
+  const payload = {
+    ...formData,
+    avatarUrl,
+    graduationYear: Number(formData.graduationYear),
+  };
+
+  const response = await fetch(
+    `${getApiBase()}/api/v1/register`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  const data = await response.json().catch(() => null);
+  console.log(data);
+
+  if (!response.ok) {
+    const errorMsg = data?.error || data?.message || `Registration failed (${response.status}: ${response.statusText})`;
+    console.error('Registration failed:', errorMsg);
+    const error = new Error(errorMsg) as Error & { fields?: Record<string, string>; status?: number };
+    error.fields = data?.fields;
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
 }
 
 export async function getUserProfileByName(profileName: string) {
-
-  const token = localStorage.getItem('token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const eventName = process.env.NEXT_PUBLIC_EVENT_NAME || 'Opencode';
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/participant/${profileName}/${process.env.NEXT_PUBLIC_EVENT_NAME}`,
+    `${getApiBase()}/api/v1/participant/${encodeURIComponent(profileName)}/${encodeURIComponent(eventName)}`,
     {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     },
   );
@@ -89,15 +112,10 @@ export async function updateUserProfile(updatedData: ProfileUpdatePayload) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
   if (!token) {
-    console.warn('No token found, using mock update for local dev');
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true, data: updatedData });
-      }, 500);
-    });
+    throw new Error('No authentication token found. Please sign in again.');
   }
 
-  // Never send GitHub ID or email — those fields are immutable.
+  // Never send GitHub ID or email - those fields are immutable.
   const payload: ProfileUpdatePayload = {
     name: updatedData.name,
     college: updatedData.college,
@@ -107,7 +125,7 @@ export async function updateUserProfile(updatedData: ProfileUpdatePayload) {
   };
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/participant/update`,
+    `${getApiBase()}/api/v1/participant/update`,
     {
       method: 'PUT',
       headers: {
@@ -154,16 +172,53 @@ export async function updateUserProfile(updatedData: ProfileUpdatePayload) {
   return data;
 }
 
-export async function fetchColleges() {
+export async function fetchColleges(param?: string | { queryKey?: unknown }): Promise<string[]> {
+  const targetEvent =
+    typeof param === 'string' && param
+      ? param
+      : process.env.NEXT_PUBLIC_EVENT_NAME || "OPENCODE'26";
+
+  const isIIITAllahabad = (col: string) => {
+    const s = col.toLowerCase().replace(/[^a-z]/g, '');
+    return s.includes('allahabad') && (s.includes('iiit') || s.includes('informationtechnology'));
+  };
+
+  // 1. Fetch registered colleges from the active event leaderboard
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/colleges`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch colleges');
+    const leadData = await FetchedLeaderboard(targetEvent);
+    if (leadData && Array.isArray(leadData)) {
+      const colleges = leadData
+        .map((item) => (item.collegeName ?? '')?.trim())
+        .filter((c) => Boolean(c) && !isIIITAllahabad(c));
+      const uniqueColleges = [...new Set(colleges)].sort();
+      if (uniqueColleges.length > 0) {
+        return uniqueColleges;
+      }
     }
-    const data = await response.json();
-    return data.data; // Assuming response_200 wraps in { data: ... }
   } catch (error) {
-    console.error('Error fetching colleges:', error);
-    return [];
+    console.error('Error fetching colleges from event leaderboard:', error);
   }
+
+  // 2. Fallback list of known colleges when offline or event is newly initialized
+  return [
+    'Birla Institute of Technology and Science, Pilani',
+    'Delhi Technological University',
+    'Indian Institute of Information Technology, Hyderabad',
+    'Indian Institute of Information Technology, Lucknow',
+    'Indian Institute of Technology BHU',
+    'Indian Institute of Technology Bombay',
+    'Indian Institute of Technology Delhi',
+    'Indian Institute of Technology Kanpur',
+    'Indian Institute of Technology Kharagpur',
+    'Indian Institute of Technology Madras',
+    'Indian Institute of Technology Roorkee',
+    'Motilal Nehru National Institute of Technology, Allahabad',
+    'National Institute of Technology, Rourkela',
+    'National Institute of Technology, Surathkal',
+    'National Institute of Technology, Tiruchirappalli',
+    'National Institute of Technology, Warangal',
+    'Netaji Subhas University of Technology',
+    'Vellore Institute of Technology',
+  ];
 }
+

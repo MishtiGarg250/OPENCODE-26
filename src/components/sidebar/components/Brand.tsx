@@ -1,17 +1,17 @@
-import { Box, Flex, Text, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import Link from 'next/link';
 
 import { HorizonLogo } from 'components/icons/Icons';
 import { HSeparator } from 'components/separator/Separator';
 
 export function SidebarBrand() {
-  const textColor = useColorModeValue('gray.800', 'white');
-  const mutedText = useColorModeValue('gray.500', 'gray.400');
-  const accentColor = '#9D767E';
+  const textColor = 'var(--fg)';
+  const mutedText = 'var(--fg-muted)';
+  const accentColor = 'var(--accent)';
 
   return (
     <Flex align="center" direction="column" py="24px" px="16px">
-      <Link href="/user/home">
+      <Link href="/user/events">
         <Box cursor="pointer" textAlign="center">
           <Box mb="12px">
             <HorizonLogo h="70px" w="70px" color={textColor} />

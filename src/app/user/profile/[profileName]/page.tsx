@@ -8,14 +8,13 @@ import {
   Grid,
   Icon,
   Text,
-  useBreakpointValue,
   useDisclosure,
 } from '@chakra-ui/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchLoggedInBasicDetails, getUserProfileByName, updateUserProfile } from 'api/profile/profile';
 import { Pencil } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { RingLoader } from 'react-spinners';
 import Banner from 'views/admin/profile/components/Banner';
 import CommunityMetrics from 'views/admin/profile/components/CommunityMetrics';
@@ -27,7 +26,10 @@ import { getRoleTags, RoleBadgesGroup } from 'views/admin/profile/components/Rol
 import { ProfileData } from '../page';
 import { opencodeTokens } from '../../../../theme/opencode-tokens';
 import PageHeading from 'components/japanese/PageHeading';
+import AnimatedContent from 'components/reactbits/AnimatedContent';
 import { getEligibleBadges, BadgeDefinition } from 'constants/badges';
+import { FetchedLeaderboard } from 'api/leaderboard/leaderboard';
+import { isMaintainer } from 'constants/Maintainers';
 
 export default function ProfileOverviewOther() {
   const { profileName } = useParams<{ profileName: string }>();
@@ -59,13 +61,68 @@ export default function ProfileOverviewOther() {
     loadLoggedInUser();
   }, []);
 
+  const eventName = process.env.NEXT_PUBLIC_EVENT_NAME || 'Opencode';
+  const isOpencode = eventName.toLowerCase().includes('opencode');
+
   const { data, isLoading } = useQuery<{ data: ProfileData }>({
     queryKey: ['profileInfo', profileName],
     queryFn: () => getUserProfileByName(profileName),
     enabled: !!profileName,
   });
 
+  const { data: leadData } = useQuery({
+    queryKey: ['LeadInfo', eventName],
+    queryFn: () => FetchedLeaderboard(eventName),
+  });
+
   const profile = data?.data;
+
+  // Determine if user is a maintainer or mentor (staff)
+  const isStaffOrMentor = useMemo(() => {
+    if (!profileName) return false;
+    return (
+      isMaintainer(profileName) ||
+      Boolean(profile?.isMentor || profile?.isAdmin)
+    );
+  }, [profileName, profile?.isMentor, profile?.isAdmin]);
+
+  // Derive rank & total eligible participants dynamically matching Leaderboard page
+  const { resolvedRank, totalParticipants } = useMemo(() => {
+    if (isStaffOrMentor) {
+      const eligibleList = leadData
+        ? isOpencode
+          ? leadData.filter((item) => !item.isMentor && (!item.githubid || !isMaintainer(item.githubid)))
+          : leadData
+        : [];
+      return { resolvedRank: null, totalParticipants: eligibleList.length };
+    }
+
+    if (!leadData || !Array.isArray(leadData) || leadData.length === 0) {
+      const backendRank = typeof profile?.rank === 'number' && profile.rank > 0 ? profile.rank : null;
+      return { resolvedRank: backendRank, totalParticipants: 0 };
+    }
+
+    const eligibleList = isOpencode
+      ? leadData.filter((item) => !item.isMentor && (!item.githubid || !isMaintainer(item.githubid)))
+      : leadData;
+
+    const total = eligibleList.length;
+
+    const userIndex = eligibleList.findIndex(
+      (u) => u.githubid?.toLowerCase() === profileName?.toLowerCase()
+    );
+
+    if (userIndex !== -1) {
+      return { resolvedRank: userIndex + 1, totalParticipants: total };
+    }
+
+    // If user has points > 0 and backend computed rank
+    if (typeof profile?.rank === 'number' && profile.rank > 0 && (profile.points || 0) > 0) {
+      return { resolvedRank: profile.rank, totalParticipants: total };
+    }
+
+    return { resolvedRank: null, totalParticipants: total };
+  }, [leadData, isOpencode, profileName, profile?.rank, profile?.points, isStaffOrMentor]);
 
   const isOwnProfile = loggedInGithubId != null && loggedInGithubId === profileName;
 
@@ -94,16 +151,18 @@ export default function ProfileOverviewOther() {
   };
 
   const roleTags = getRoleTags(profile, profileName);
-  const roleLabel = roleTags.map((t) => t.label).join(' • ');
+  const roleLabel = roleTags.map((t) => t.label).join(' • ') || 'Contributor';
 
-  const isDesktop = useBreakpointValue({ base: false, lg: true });
+  const earnedBadges = useMemo(() => {
+    return getEligibleBadges(profile?.prMerged || 0, profile?.PR || []);
+  }, [profile?.prMerged, profile?.PR]);
 
-  // Panel styling matching the Opencode 2026 color palette
+  // Panel styling matching the Kyoto cherry blossom & dusk plum theme
   const glassPanel = {
-    bg: "linear-gradient(135deg, rgba(184, 135, 132, 0.13), rgba(62, 56, 67, 0.22))",
-    backdropFilter: "blur(20px)",
-    border: "1px solid rgba(184, 135, 132, 0.28)",
-    boxShadow: "0 8px 32px 0 rgba(41, 25, 32, 0.30)",
+    bg: "var(--surface)",
+    backdropFilter: "blur(24px)",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--shadow)",
   };
 
   if (isLoading) {
@@ -134,194 +193,99 @@ export default function ProfileOverviewOther() {
       {/* Discord Banner */}
       <DiscordBanner />
 
-      {/* ─── MOBILE LAYOUT ─── */}
-      {!isDesktop && (
-        <>
-          {/* User Identity Card */}
+      {/* Main Profile Sections with Spacious, Balanced Layout */}
+      <AnimatedContent distance={20} duration={0.5} delay={0.1}>
+        {/* Row 1: User Identity (Hero Left) + Community Metrics (Spacious Right) */}
+        <Grid
+          templateColumns={{ base: '1fr', lg: '380px 1fr' }}
+          gap={{ base: '20px', md: '24px' }}
+          mb={{ base: '20px', md: '24px' }}
+          alignItems="stretch"
+        >
+          {/* User Identity */}
           <Box
             {...glassPanel}
-            borderRadius="22px"
-            p="24px"
-            mb="20px"
+            borderRadius="24px"
+            p={{ base: '22px', md: '28px 30px' }}
+            display="flex"
+            flexDirection="column"
           >
-            <Flex direction="column" align="center">
-              <Avatar
-                src={profile?.avatarUrl || `https://github.com/${profile?.githubId || profileName}.png`}
-                size="xl"
-                mb="12px"
-              />
-              <Text fontSize="20px" fontWeight="800">
-                {profile?.name || profileName}
-              </Text>
-              <Text fontSize="13px" color={opencodeTokens.colors.text.secondary}>
-                @{profile?.githubId || profileName}
-              </Text>
-
-              {roleTags.length > 0 && (
-                <RoleBadgesGroup tags={roleTags} mt="10px" />
-              )}
-
-              {isOwnProfile && (
-                <Button
-                  leftIcon={<Pencil size={14} />}
-                  size="sm"
-                  w="100%"
-                  maxW="260px"
-                  bg="linear-gradient(135deg, #3E3843, #60434A)"
-                  color="#FEF3ED"
-                  border="1px solid rgba(120, 82, 85, 0.5)"
-                  borderRadius="14px"
-                  fontWeight="700"
-                  fontSize="13px"
-                  py="18px"
-                  mt="14px"
-                  _hover={{
-                    bg: 'linear-gradient(135deg, #60434A, #785255)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 6px 20px rgba(120, 82, 85, 0.35)',
-                  }}
-                  transition="all 0.3s ease"
-                  onClick={onOpen}
-                >
-                  Edit Profile
-                </Button>
-              )}
-            </Flex>
+            <Banner
+              avatar={profile?.avatarUrl || `https://github.com/${profile?.githubId || profileName}.png`}
+              name={profile?.name || profileName}
+              githubUrl={profile?.githubId || profileName}
+              tags={roleTags}
+              showEdit={isOwnProfile}
+              onEdit={onOpen}
+            />
           </Box>
 
           {/* Community Metrics */}
           <Box
             {...glassPanel}
-            borderRadius="20px"
-            p="20px"
-            mb="20px"
+            borderRadius="24px"
+            p={{ base: '22px', md: '28px 30px' }}
+            display="flex"
+            flexDirection="column"
           >
             <CommunityMetrics
-              prMerged={profile?.prMerged || 0}
-              pointsEarned={profile?.points || 0}
+              prMerged={profile?.prMerged ?? 0}
+              pointsEarned={profile?.points ?? 0}
+              rank={resolvedRank}
+              totalParticipants={totalParticipants}
+              totalPRsSubmitted={profile?.totalPRs ?? profile?.PR?.length ?? profile?.prMerged ?? 0}
+              isStaffOrMentor={isStaffOrMentor}
             />
           </Box>
+        </Grid>
 
-          {/* General Information */}
-          <Box
-            {...glassPanel}
-            borderRadius="20px"
-            p="20px"
-            mb="20px"
-          >
-            <General
-              name={profile?.name || profileName}
-              githubId={profile?.githubId || profileName}
-              college={profile?.college}
-              discordId={profile?.discordId}
-              email={profile?.email}
-              gender={profile?.gender}
-              year={profile?.year}
-              role={roleLabel}
-            />
-          </Box>
+        {/* Row 2: General Information (Full Width, Spacious Multi-Column) */}
+        <Box
+          {...glassPanel}
+          borderRadius="24px"
+          p={{ base: '22px', md: '28px 32px' }}
+          mb={{ base: '20px', md: '24px' }}
+        >
+          <General
+            name={profile?.name || profileName}
+            githubId={profile?.githubId || profileName}
+            college={profile?.college}
+            discordId={profile?.discordId}
+            email={profile?.email}
+            gender={profile?.gender}
+            year={profile?.year}
+            role={roleLabel}
+          />
+        </Box>
+      </AnimatedContent>
 
-          {/* Badges */}
-          {getEligibleBadges(profile?.prMerged || 0, profile?.PR).length > 0 && (
-            <Box {...glassPanel} borderRadius="20px" p="20px" mb="20px">
-              <Text fontWeight="800" mb="14px" color={opencodeTokens.colors.text.primary}>
-                Unlocked Badges
-              </Text>
-              <Grid templateColumns="1fr" gap="12px">
-                {getEligibleBadges(profile?.prMerged || 0, profile?.PR).map((badge, idx) => (
-                  <BadgeCard key={idx} badge={badge} />
-                ))}
-              </Grid>
-            </Box>
-          )}
-
-          {/* Recent Contributions */}
-          <Box {...glassPanel} borderRadius="20px" p="20px">
-            <Projects PRs={profile?.PR || []} />
-          </Box>
-        </>
-      )}
-
-      {/* ─── DESKTOP LAYOUT ─── */}
-      {isDesktop && (
-        <>
-          {/* Row 1: 3-column grid */}
-          <Grid
-            templateColumns="1fr 1.2fr 1.3fr"
-            gap="20px"
-            mb="20px"
-          >
-            {/* User Identity */}
-            <Box
-              {...glassPanel}
-              borderRadius="22px"
-              p="24px"
-            >
-              <Banner
-                avatar={profile?.avatarUrl || `https://github.com/${profile?.githubId || profileName}.png`}
-                name={profile?.name || profileName}
-                githubUrl={profile?.githubId || profileName}
-                tags={roleTags}
-                showEdit={isOwnProfile}
-                onEdit={onOpen}
-              />
-            </Box>
-
-            {/* Community Metrics */}
-            <Box
-              {...glassPanel}
-              borderRadius="22px"
-              p="24px"
-            >
-              <CommunityMetrics
-                prMerged={profile?.prMerged || 0}
-                pointsEarned={profile?.points || 0}
-              />
-            </Box>
-
-            {/* General Information */}
-            <Box
-              {...glassPanel}
-              borderRadius="22px"
-              p="24px"
-            >
-              <General
-                name={profile?.name || profileName}
-                githubId={profile?.githubId || profileName}
-                college={profile?.college}
-                discordId={profile?.discordId}
-                email={profile?.email}
-                gender={profile?.gender}
-                year={profile?.year}
-                role={roleLabel}
-              />
-            </Box>
+      {/* Badges Row (if any) */}
+      {earnedBadges.length > 0 && (
+        <Box {...glassPanel} borderRadius="22px" p={{ base: '20px', md: '24px' }} mb="20px">
+          <Flex justify="space-between" align="center" mb="16px">
+            <Text fontSize="18px" fontWeight="800" color="var(--fg)">
+              Unlocked Badges
+            </Text>
+            <Text fontSize="12px" color="var(--muted)" fontFamily="var(--f-mono)">
+              {earnedBadges.length} Earned
+            </Text>
+          </Flex>
+          <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap="16px">
+            {earnedBadges.map((badge, idx) => (
+              <BadgeCard key={badge.id || idx} badge={badge} />
+            ))}
           </Grid>
-
-          {/* Badges Row (if any) */}
-          {getEligibleBadges(profile?.prMerged || 0, profile?.PR).length > 0 && (
-            <Box {...glassPanel} borderRadius="22px" p="24px" mb="20px">
-              <Text fontSize="18px" fontWeight="800" mb="16px" color={opencodeTokens.colors.text.primary}>
-                Unlocked Badges
-              </Text>
-              <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap="16px">
-                {getEligibleBadges(profile?.prMerged || 0, profile?.PR).map((badge, idx) => (
-                  <BadgeCard key={idx} badge={badge} />
-                ))}
-              </Grid>
-            </Box>
-          )}
-
-          {/* Row 2: Recent Contributions - Full width */}
-          <Box
-            {...glassPanel}
-            borderRadius="22px"
-            p="24px"
-          >
-            <Projects PRs={profile?.PR || []} />
-          </Box>
-        </>
+        </Box>
       )}
+
+      {/* Row 2: Recent Contributions - Full width */}
+      <Box
+        {...glassPanel}
+        borderRadius="22px"
+        p={{ base: '20px', md: '24px' }}
+      >
+        <Projects PRs={profile?.PR || []} />
+      </Box>
 
       {isOwnProfile && (
         <EditProfileModal
@@ -344,46 +308,40 @@ export default function ProfileOverviewOther() {
 }
 
 function BadgeCard({ badge }: { badge: BadgeDefinition }) {
-  const bg = opencodeTokens.colors.background.glassDark;
-  const borderColor = opencodeTokens.colors.border.light;
-  const textColor = opencodeTokens.colors.text.primary;
-  const descColor = opencodeTokens.colors.text.secondary;
-
   return (
     <Flex
       direction="row"
       align="center"
-      bg={bg}
-      border="1px solid"
-      borderColor={borderColor}
-      borderRadius="12px"
-      p="12px"
+      bg="var(--card-soft)"
+      border="1px solid var(--border)"
+      borderRadius="16px"
+      p="14px"
       gap="16px"
       transition="all 0.3s ease"
       _hover={{
-        borderColor: '#785255',
-        transform: 'translateY(-2px)'
+        borderColor: 'var(--accent)',
+        transform: 'translateY(-2px)',
+        boxShadow: 'var(--shadow)',
       }}
     >
       <Flex
         align="center"
         justify="center"
-        w="44px"
-        h="44px"
+        w="46px"
+        h="46px"
         borderRadius="full"
-        bg={`${badge.color}.900`}
-        color={`${badge.color}.300`}
-        border="1px solid"
-        borderColor={`${badge.color}.600`}
-        boxShadow={`0 0 10px var(--chakra-colors-${badge.color}-800)`}
+        bg="var(--accent-soft)"
+        color="var(--accent)"
+        border="1px solid var(--border-strong)"
+        boxShadow="var(--shadow)"
       >
         <Icon as={badge.icon} boxSize={5} />
       </Flex>
       <Box>
-        <Text fontSize="15px" fontWeight="800" color={textColor}>
+        <Text fontSize="15px" fontWeight="800" color="var(--fg)">
           {badge.title}
         </Text>
-        <Text fontSize="13px" color={descColor} mt="2px">
+        <Text fontSize="13px" color="var(--muted)" mt="2px">
           {badge.description}
         </Text>
       </Box>

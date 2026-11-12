@@ -6,44 +6,38 @@ import {
   Text,
   Badge,
 } from '@chakra-ui/react';
-import { opencodeTokens } from '../../../../theme/opencode-tokens';
 import { PullRequest } from 'app/user/profile/page';
 import Card from 'components/card/Card';
 import { FaGithub, FaCodeBranch } from 'react-icons/fa';
 
 export default function Project({ pr }: { pr: PullRequest }) {
-  const textPrimary = opencodeTokens.colors.text.primary;
-  const textSecondary = opencodeTokens.colors.text.secondary;
-
-  const cardBg = opencodeTokens.colors.background.glassDark;
-  const borderColor = opencodeTokens.colors.border.light;
-  const iconBg = opencodeTokens.colors.background.glassLight;
-  const iconColor = opencodeTokens.colors.accent.sakura;
+  const textPrimary = 'var(--fg)';
+  const textSecondary = 'var(--muted)';
 
   const status = pr.status.toLowerCase();
-  const statusColor =
+  const statusStyles =
     status === 'merged'
-      ? 'green'
+      ? { bg: 'rgba(104, 211, 145, 0.18)', color: '#68D391', border: '1px solid rgba(104, 211, 145, 0.35)' }
       : status === 'open'
-      ? 'purple'
+      ? { bg: 'rgba(183, 148, 244, 0.18)', color: '#B794F4', border: '1px solid rgba(183, 148, 244, 0.35)' }
       : status === 'rejected'
-      ? 'red'
-      : 'gray';
+      ? { bg: 'rgba(252, 129, 129, 0.18)', color: '#FC8181', border: '1px solid rgba(252, 129, 129, 0.35)' }
+      : { bg: 'rgba(255, 255, 255, 0.1)', color: 'var(--muted)', border: '1px solid rgba(255, 255, 255, 0.2)' };
 
   return (
     <Card
-      bg="linear-gradient(135deg, rgba(233, 167, 178, 0.15), rgba(233, 167, 178, 0.05))"
+      bg="var(--card-soft)"
       backdropFilter="blur(20px)"
       p="16px"
       borderRadius="16px"
-      border="1px solid rgba(233, 167, 178, 0.3)"
+      border="1px solid var(--border)"
       transition="all 0.3s ease"
-      boxShadow="0 4px 15px 0 rgba(233, 167, 178, 0.1)"
+      boxShadow="var(--shadow)"
       _hover={{
         transform: 'translateY(-2px)',
-        boxShadow: "0 8px 32px 0 rgba(233, 167, 178, 0.2)",
-        borderColor: opencodeTokens.colors.accent.sakura,
-        bg: "linear-gradient(135deg, rgba(233, 167, 178, 0.2), rgba(233, 167, 178, 0.1))",
+        boxShadow: 'var(--shadow)',
+        borderColor: 'var(--accent)',
+        bg: 'var(--accent-soft)',
       }}
     >
       <Flex gap="14px" align="flex-start">
@@ -51,10 +45,12 @@ export default function Project({ pr }: { pr: PullRequest }) {
         <Box
           p="10px"
           borderRadius="12px"
-          bg={iconBg}
-          border={`1px solid ${opencodeTokens.colors.border.light}`}
+          bg="var(--accent-soft)"
+          border="1px solid var(--border)"
+          color="var(--accent)"
+          flexShrink={0}
         >
-          <Icon as={FaGithub} h="20px" w="20px" color={iconColor} />
+          <Icon as={FaGithub} h="20px" w="20px" />
         </Box>
 
         {/* CONTENT */}
@@ -121,21 +117,30 @@ export default function Project({ pr }: { pr: PullRequest }) {
               <Text fontSize="sm" color={textSecondary}>
                 Status
               </Text>
-              <Badge
-                colorScheme={statusColor}
+              <Box
+                {...statusStyles}
                 px="10px"
                 py="2px"
                 borderRadius="full"
-                fontWeight="800"
+                fontWeight="700"
+                fontSize="12px"
                 textTransform="capitalize"
               >
                 {pr.status}
-              </Badge>
+              </Box>
             </Flex>
             {status === 'merged' && (
-              <Flex align="center" gap="6px" bg={opencodeTokens.colors.background.glassLight} px="10px" py="4px" borderRadius="8px">
-                <Text fontSize="xs" fontWeight="700" color={opencodeTokens.colors.accent.sakura}>POINTS</Text>
-                <Text fontSize="sm" fontWeight="800" color={opencodeTokens.colors.accent.sakuraHover}>
+              <Flex
+                align="center"
+                gap="6px"
+                bg="var(--accent-soft)"
+                border="1px solid var(--border)"
+                px="10px"
+                py="3px"
+                borderRadius="8px"
+              >
+                <Text fontSize="xs" fontWeight="700" color="var(--accent)">POINTS</Text>
+                <Text fontSize="sm" fontWeight="800" color="var(--fg)" fontFamily="var(--f-mono)">
                   +{pr.issue.currentPoints}
                 </Text>
               </Flex>

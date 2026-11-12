@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Portal, useColorModeValue } from '@chakra-ui/react';
+import { Box, Portal } from '@chakra-ui/react';
 import Footer from 'components/footer/FooterAdmin';
 import Navbar from 'components/navbar/NavbarAdmin';
 import MobileMenuBar from 'components/sidebar/MobileMenuBar';
@@ -60,15 +60,21 @@ export default function AdminLayout(props: DashboardLayoutProps) {
     const token = localStorage.getItem('token');
     const payload = parseJwt(token);
     if (!payload?.roles?.isAdmin) {
+      // In local development on localhost, allow access for testing
+      if (
+        process.env.NODE_ENV === 'development' &&
+        typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost'
+      ) {
+        return;
+      }
       console.error('Only admin can access admin pages');
-      router.push('/user/home');
+      router.push('/user/events');
     }
   }, [isMounted, router]);
 
-  const bg = useColorModeValue('secondaryGray.300', 'navy.900');
-
   return (
-    <Box minH="100vh" w="100%" bg={bg}>
+    <Box minH="100vh" w="100%" bg="var(--bg)" color="var(--fg)">
       <Sidebar routes={routes} {...rest} />
 
       <MobileMenuBar routes={routes} />

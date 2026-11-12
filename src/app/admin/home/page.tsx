@@ -6,6 +6,7 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  IconButton,
   Input,
   Select,
   Table,
@@ -17,8 +18,10 @@ import {
   Th,
   Thead,
   Tr,
-  useColorModeValue,
+  Icon,
 } from '@chakra-ui/react';
+import { X, ShoppingBag, Sliders } from 'lucide-react';
+import AdminGeekstoreManager from 'components/admin/AdminGeekstoreManager';
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getUserPRDetails } from 'api/admin/admin';
@@ -28,11 +31,10 @@ import { useEffect, useState } from 'react';
 import { RingLoader } from 'react-spinners';
 import { useRouter } from 'next/navigation';
 
-import {
-  useToast,
-} from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react';
 import { EditPRPoints } from 'api/admin/admin';
 import { fetchLoggedInBasicDetails } from 'api/profile/profile';
+import { isAdminUser } from 'utils/jwt';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -44,36 +46,12 @@ export default function Dashboard() {
   const [incrementPoints, setIncrementPoints] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'geekstore' | 'points'>('geekstore');
 
-  // Define the shape of the JWT payload
-  interface JWTPayload {
-    roles?: {
-      isAdmin: boolean;
-    };
-    [key: string]: any;
-  }
-
-  // Helper to decode JWT payload
-  function parseJwt(token: string | null): JWTPayload | null {
-    if (!token) return null;
-    try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join(''),
-      );
-      return JSON.parse(jsonPayload);
-    } catch {
-      return null;
-    }
-  }
-
-  const handleIncrementPointsChange = (e: any) => {
+  const handleIncrementPointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIncrementPoints(e.target.value);
   };
+
   const handleOpenModal = (prDetails: any) => {
     setSelectedPrDetails(prDetails);
     setIsModalOpen(true);
@@ -85,8 +63,18 @@ export default function Dashboard() {
     setIsModalOpen(false);
   };
 
-  const [userPrDetails, setuserPrDetails] = useState<any[]>([]);
-  const textColor = useColorModeValue('secondaryGray.900', 'white');
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
+  const [userPrDetails, setUserPrDetails] = useState<any[]>([]);
   const auth = useAuth();
 
   useEffect(() => {
@@ -108,37 +96,36 @@ export default function Dashboard() {
   // Admin-only guard: Redirect non-admin users away from admin page
   useEffect(() => {
     if (!isMounted) return;
-    const token = localStorage.getItem('token');
-    const payload = parseJwt(token);
-
-    if (!payload?.roles?.isAdmin) {
-      console.error('Only admin can view events');
-      router.push('/user/home');
+    if (
+      process.env.NODE_ENV === 'development' &&
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'localhost'
+    ) {
+      return; // Allow local testing on localhost in development
+    }
+    if (!isAdminUser()) {
+      router.push('/user/events');
     }
   }, [isMounted, router]);
 
   const pointUpdate = useMutation({
     mutationFn: EditPRPoints,
     onSuccess: () => {
-      // console.log('Success');
-
       toast({
         title: 'Points Updated',
         description: 'PR points were successfully updated.',
         status: 'success',
-        duration: 10000,
+        duration: 5000,
         isClosable: true,
       });
-
       setIsModalOpen(false);
     },
-    onError: () => {
-      // console.log('Error');
+    onError: (error: any) => {
       toast({
-        title: 'Points not Updated',
-        description: 'PR points were successfully updated.',
+        title: 'Update Failed',
+        description: error?.message || 'Could not update PR points.',
         status: 'error',
-        duration: 3000,
+        duration: 4000,
         isClosable: true,
       });
     },
@@ -185,109 +172,185 @@ export default function Dashboard() {
     enabled: false,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <RingLoader color="#36d7b7" />
-      </div>
-    );
-  }
 
   const handlePrClick = async () => {
     try {
       setIsLoading(true);
       const res = await refetch();
-      setuserPrDetails(res.data);
+      setUserPrDetails(res.data || []);
       setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
-      console.error('Error fetching data:', error);
+      console.error('Error fetching PR details:', error);
     }
   };
 
-  if (!eventData) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <RingLoader color="#36d7b7" />
-      </div>
-    );
-  }
+  const eventsList = eventData?.data || [
+    { name: "OpenCode'26" },
+    { name: 'Rift CTF' },
+  ];
 
   return (
     <>
-    
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-        <Text color={textColor} fontSize="2xl" ms="24px" fontWeight="700">
-          Change Points
-        </Text>
+      <Box pt={{ base: '130px', md: '80px', xl: '80px' }} pb="40px">
+        {/* Navigation Tabs */}
+        <Flex gap="12px" mb="24px" flexWrap="wrap">
+          <Button
+            onClick={() => setActiveTab('geekstore')}
+            borderRadius="full"
+            size="sm"
+            px="5"
+            py="2"
+            leftIcon={<Icon as={ShoppingBag} size={15} />}
+            bg={activeTab === 'geekstore' ? 'var(--accent)' : 'var(--surface)'}
+            color={activeTab === 'geekstore' ? 'var(--accent-ink)' : 'var(--fg)'}
+            border="1px solid"
+            borderColor={activeTab === 'geekstore' ? 'var(--accent)' : 'var(--border)'}
+            _hover={{
+              bg: activeTab === 'geekstore' ? 'var(--accent-hover)' : 'var(--surface-2)',
+            }}
+          >
+            Geekstore Management
+          </Button>
 
-        <Flex
-          mt="25px"
-          mb="20px"
-          justifyContent="space-between"
-          direction={{ base: 'column', md: 'row' }}
-          align={{ base: 'start', md: 'center' }}
-        >
-          <FormControl isRequired>
-            <FormLabel color={textColor}>Github ID</FormLabel>
-            <Input
-              placeholder="First name"
-              color={textColor}
-              value={githubId}
-              onChange={(e) => setGithubId(e.target.value)}
-            />
-          </FormControl>
-
-          <FormControl marginLeft="10px">
-            <FormLabel>All Events</FormLabel>
-            <Select
-              placeholder="Select Event"
-              value={eventName}
-              onChange={(e) => setEventName(e.target.value)}
-            >
-              {eventData.data.map((e) => (
-                <option key={e.name} value={e.name}>
-                  {e.name}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
+          <Button
+            onClick={() => setActiveTab('points')}
+            borderRadius="full"
+            size="sm"
+            px="5"
+            py="2"
+            leftIcon={<Icon as={Sliders} size={15} />}
+            bg={activeTab === 'points' ? 'var(--accent)' : 'var(--surface)'}
+            color={activeTab === 'points' ? 'var(--accent-ink)' : 'var(--fg)'}
+            border="1px solid"
+            borderColor={activeTab === 'points' ? 'var(--accent)' : 'var(--border)'}
+            _hover={{
+              bg: activeTab === 'points' ? 'var(--accent-hover)' : 'var(--surface-2)',
+            }}
+          >
+            Change Points (PRs)
+          </Button>
         </Flex>
-        <Button onClick={handlePrClick}>View PRS</Button>
 
-        <TableContainer>
+        {activeTab === 'geekstore' ? (
+          <AdminGeekstoreManager />
+        ) : (
+          <>
+            <Box
+              bg="var(--surface)"
+          border="1px solid var(--border)"
+          p={{ base: '20px', md: '28px' }}
+          borderRadius="20px"
+          boxShadow="var(--shadow)"
+          mb="24px"
+        >
+          <Text
+            color="var(--fg)"
+            fontFamily="var(--f-display)"
+            fontSize={{ base: '26px', md: '30px' }}
+            fontWeight="400"
+            letterSpacing="0.02em"
+            mb="6px"
+          >
+            Change Points
+          </Text>
+          <Text fontSize="sm" color="var(--fg-muted)" mb="20px">
+            Search contributor pull requests by GitHub username and event to adjust scores.
+          </Text>
+
+          <Flex
+            mb="20px"
+            direction={{ base: 'column', md: 'row' }}
+            align={{ base: 'stretch', md: 'flex-end' }}
+            gap="16px"
+          >
+            <FormControl isRequired flex="1">
+              <FormLabel fontSize="sm" fontWeight="600" color="var(--fg)">Github ID</FormLabel>
+              <Input
+                variant="auth"
+                placeholder="e.g. torvalds"
+                value={githubId}
+                onChange={(e) => setGithubId(e.target.value)}
+              />
+            </FormControl>
+
+            <FormControl flex="1">
+              <FormLabel fontSize="sm" fontWeight="600" color="var(--fg)">All Events</FormLabel>
+              <Select
+                variant="auth"
+                placeholder="Select Event"
+                value={eventName}
+                onChange={(e) => setEventName(e.target.value)}
+              >
+                {eventsList.map((e) => (
+                  <option key={e.name} value={e.name}>
+                    {e.name}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Button
+              onClick={handlePrClick}
+              variant="brand"
+              isLoading={isLoading}
+              minW={{ base: '100%', md: '140px' }}
+            >
+              View PRs
+            </Button>
+          </Flex>
+        </Box>
+
+        <TableContainer
+          bg="var(--surface)"
+          border="1px solid var(--border)"
+          borderRadius="16px"
+          p="12px"
+        >
           <Table variant="simple">
-            <TableCaption>All PR Details</TableCaption>
+            <TableCaption color="var(--fg-muted)">All PR Details</TableCaption>
             <Thead>
               <Tr>
-                <Th>PR Title</Th>
-                <Th>PR Number</Th>
-                <Th>Issue Number</Th>
-                <Th>Points</Th>
-                <Th>RepoName</Th>
-                <Th>Status</Th>
-                <Th>Action</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">PR Title</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">PR Number</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">Issue Number</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">Points</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">RepoName</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">Status</Th>
+                <Th color="var(--fg-muted)" borderColor="var(--border)">Action</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {userPrDetails?.map((pr, index) => (
-                <Tr key={index}>
-                  <Td>{pr.prTitle}</Td>
-                  <Td>{pr.prNumber}</Td>
-                  <Td>{pr.issueNumber}</Td>
-                  <Td>{pr.points}</Td>
-                  <Td>{pr.repoName}</Td>
-                  <Td>{pr.status}</Td>
-                  <Td>
-                    <Button onClick={() => handleOpenModal(pr)}>
-                      View Details
-                    </Button>
+              {userPrDetails && userPrDetails.length === 0 ? (
+                <Tr>
+                  <Td colSpan={7} textAlign="center" py="36px" borderColor="var(--border)">
+                    <Text color="var(--fg-muted)" fontSize="sm">
+                      No pull requests to display. Enter a GitHub ID and click View PRs.
+                    </Text>
                   </Td>
                 </Tr>
-              ))}
+              ) : (
+                userPrDetails?.map((pr, index) => (
+                  <Tr key={index} _hover={{ bg: 'var(--surface-2)' }}>
+                    <Td borderColor="var(--border)">{pr.prTitle}</Td>
+                    <Td borderColor="var(--border)">{pr.prNumber}</Td>
+                    <Td borderColor="var(--border)">{pr.issueNumber}</Td>
+                    <Td borderColor="var(--border)">{pr.points}</Td>
+                    <Td borderColor="var(--border)">{pr.repoName}</Td>
+                    <Td borderColor="var(--border)">{pr.status}</Td>
+                    <Td borderColor="var(--border)">
+                      <Button size="sm" variant="outline" onClick={() => handleOpenModal(pr)}>
+                        View Details
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))
+              )}
             </Tbody>
           </Table>
         </TableContainer>
+          </>
+        )}
 
         {isModalOpen && (
           <Box
@@ -296,7 +359,8 @@ export default function Dashboard() {
             left="0"
             right="0"
             bottom="0"
-            bg="blackAlpha.600"
+            bg="blackAlpha.700"
+            backdropFilter="blur(4px)"
             zIndex={9999}
             display="flex"
             alignItems="center"
@@ -304,46 +368,49 @@ export default function Dashboard() {
             onClick={handleCloseModal}
           >
             <Box
-              bg="gray.800"
-              borderRadius="md"
+              bg="var(--surface)"
+              border="1px solid var(--border)"
+              boxShadow="0 8px 32px 0 rgba(0, 0, 0, 0.45)"
+              borderRadius="16px"
               p={6}
               maxW="500px"
               w="90%"
               onClick={(e) => e.stopPropagation()}
             >
               <Flex justify="space-between" align="center" mb={4}>
-                <Text fontSize="lg" fontWeight="bold" color={textColor}>
+                <Text fontSize="lg" fontWeight="bold" color="var(--fg)">
                   PR Details
                 </Text>
-                <Button size="sm" variant="ghost" onClick={handleCloseModal}>
-                  ✕
-                </Button>
+                <IconButton
+                  aria-label="Close modal"
+                  size="sm"
+                  variant="ghost"
+                  icon={<X size={18} />}
+                  onClick={handleCloseModal}
+                />
               </Flex>
               <form>
                 <FormControl mb={4}>
-                  <FormLabel>PR Title</FormLabel>
+                  <FormLabel color="var(--fg)">PR Title</FormLabel>
                   <Input
                     type="text"
                     value={selectedPrDetails?.prTitle || ''}
-                    color={textColor}
                     isReadOnly
                   />
                 </FormControl>
                 <FormControl mb={4}>
-                  <FormLabel>PR Number</FormLabel>
+                  <FormLabel color="var(--fg)">PR Number</FormLabel>
                   <Input
                     type="text"
                     value={selectedPrDetails?.prNumber || ''}
-                    color={textColor}
                     isReadOnly
                   />
                 </FormControl>
                 <FormControl mb={4}>
-                  <FormLabel>Increment Points</FormLabel>
+                  <FormLabel color="var(--fg)">Increment Points</FormLabel>
                   <Input
                     type="number"
                     placeholder="Enter Point to Increment"
-                    color={textColor}
                     onChange={handleIncrementPointsChange}
                     required
                   />
@@ -351,13 +418,13 @@ export default function Dashboard() {
               </form>
               <Flex justify="flex-end" gap={3}>
                 <Button
-                  bg="#9D767E" _hover={{ bg: "#785255" }} color="#FEF3ED"
+                  variant="outline"
                   onClick={handleCloseModal}
                 >
                   Close
                 </Button>
                 <Button
-                  bg="#9D767E" _hover={{ bg: "#785255" }} color="#FEF3ED"
+                  variant="brand"
                   onClick={handleChangePoints}
                 >
                   Change Points

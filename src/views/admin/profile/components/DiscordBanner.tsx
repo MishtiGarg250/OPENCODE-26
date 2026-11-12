@@ -6,47 +6,54 @@ import Link from 'next/link';
 import { FaDiscord } from 'react-icons/fa';
 
 export default function DiscordBanner() {
-  const bgColor = opencodeTokens.colors.background.glassDark;
-  const textColor = opencodeTokens.colors.text.primary;
-  const subtitleColor = opencodeTokens.colors.text.secondary;
+  const textColor = 'var(--fg)';
+  const subtitleColor = 'var(--muted)';
 
   return (
     <Link href="https://discord.gg/SxBATvUPnC" target="_blank">
       <Flex
-        bg="linear-gradient(135deg, rgba(233, 167, 178, 0.15), rgba(233, 167, 178, 0.05))"
-        backdropFilter="blur(20px)"
-        border="1px solid rgba(233, 167, 178, 0.3)"
+        role="group"
+        bg="var(--surface)"
+        backdropFilter="blur(24px)"
+        border="1px solid var(--border)"
+        boxShadow="var(--shadow)"
         direction="row"
         justify="space-between"
         align="center"
-        borderRadius="20px"
-        p={{ base: '16px', md: '24px' }}
-        mb="24px"
-        boxShadow="0 8px 32px 0 rgba(233, 167, 178, 0.2)"
+        borderRadius="22px"
+        p={{ base: '16px', md: '22px 26px' }}
+        mb="20px"
         transition="all 0.3s ease"
         _hover={{
           transform: 'translateY(-2px)',
-          boxShadow: `0 15px 30px ${opencodeTokens.colors.accent.sakura}40`,
-          borderColor: opencodeTokens.colors.accent.sakura
+          boxShadow: 'var(--shadow)',
+          borderColor: 'var(--accent)',
         }}
         gap={{ base: '12px', md: '0px' }}
       >
         <Flex align="center" gap={{ base: '12px', md: '16px' }}>
           <Box
-            bg="#5865F2"
+            bg="var(--accent-soft)"
+            border="1px solid var(--border)"
             p={{ base: '10px', md: '12px' }}
             borderRadius="14px"
             display="flex"
             alignItems="center"
             justifyContent="center"
-            boxShadow="md"
+            boxShadow="var(--shadow)"
             minW={{ base: '48px', md: '56px' }}
+            color="var(--accent)"
+            transition="all 0.3s ease"
+            _groupHover={{
+              color: 'var(--accent-hover)',
+              borderColor: 'var(--accent)',
+              bg: 'var(--accent-soft)',
+            }}
           >
             <Icon
               as={FaDiscord}
-              w={{ base: '24px', md: '32px' }}
-              h={{ base: '24px', md: '32px' }}
-              color="white"
+              w={{ base: '24px', md: '30px' }}
+              h={{ base: '24px', md: '30px' }}
             />
           </Box>
           <Box>
@@ -80,20 +87,21 @@ export default function DiscordBanner() {
         </Flex>
 
         <Box
-          bg="#5865F2"
-          color="white"
+          bg="var(--accent)"
+          color="var(--accent-ink)"
           px={{ base: '16px', md: '24px' }}
           py={{ base: '8px', md: '10px' }}
           borderRadius="full"
           fontWeight="700"
           fontSize={{ base: '12px', md: '14px' }}
-          boxShadow="md"
+          boxShadow="var(--shadow)"
           whiteSpace="nowrap"
           minW="fit-content"
-          transition="all 0.2s"
+          transition="all 0.2s ease"
           _hover={{
             transform: 'scale(1.05)',
-            bg: '#4752C4',
+            bg: 'var(--accent-hover)',
+            boxShadow: 'var(--shadow)',
           }}
         >
           Join Server

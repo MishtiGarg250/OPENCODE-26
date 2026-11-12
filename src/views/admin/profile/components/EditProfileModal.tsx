@@ -62,16 +62,16 @@ export default function EditProfileModal({
 
   const { data: colleges = [] } = useQuery({
     queryKey: ['colleges'],
-    queryFn: fetchColleges,
+    queryFn: () => fetchColleges(),
   });
 
-  const modalBg = useColorModeValue('white', '#2A2430');
-  const titleColor = useColorModeValue('#2d242a', '#FEF3ED');
-  const labelColor = useColorModeValue('#7a6a75', '#C9BCC4');
-  const lockedBg = useColorModeValue('#f5f0f2', 'rgba(255,255,255,0.06)');
-  const lockedBorder = useColorModeValue('#d8cdd3', 'rgba(255,255,255,0.12)');
-  const lockedText = useColorModeValue('#8E8391', '#8E8391');
-  const brandStars = useColorModeValue('#9D767E', '#B88784');
+  const modalBg = 'var(--card-strong)';
+  const titleColor = 'var(--fg)';
+  const labelColor = 'var(--muted)';
+  const lockedBg = 'var(--card-soft)';
+  const lockedBorder = 'var(--border)';
+  const lockedText = 'var(--subtle)';
+  const brandStars = 'var(--accent)';
 
   useEffect(() => {
     if (isOpen && profile) {
@@ -205,9 +205,11 @@ export default function EditProfileModal({
       <Box
         position="relative"
         bg={modalBg}
-        borderRadius="20px"
-        p={{ base: '20px', md: '24px' }}
-        boxShadow="0 20px 40px rgba(0,0,0,0.4)"
+        borderRadius="22px"
+        border="1px solid var(--border)"
+        backdropFilter="blur(24px)"
+        p={{ base: '20px', md: '26px' }}
+        boxShadow="var(--shadow)"
         w="90%"
         maxW="600px"
         maxH="90vh"
@@ -435,7 +437,7 @@ export default function EditProfileModal({
                   </Badge>
                 </Flex>
                 <Input
-                  value={profile?.githubId ? `@${profile.githubId}` : '—'}
+                  value={profile?.githubId ? `@${profile.githubId}` : '-'}
                   isReadOnly
                   isDisabled
                   bg={lockedBg}
@@ -475,7 +477,7 @@ export default function EditProfileModal({
                   </Badge>
                 </Flex>
                 <Input
-                  value={profile?.email || '—'}
+                  value={profile?.email || '-'}
                   isReadOnly
                   isDisabled
                   bg={lockedBg}
@@ -497,21 +499,29 @@ export default function EditProfileModal({
             <Button
               variant="ghost"
               onClick={onClose}
-              borderRadius="12px"
+              borderRadius="full"
               size="sm"
               type="button"
+              color="var(--muted)"
+              _hover={{ bg: 'var(--accent-soft)', color: 'var(--fg)' }}
             >
               Cancel
             </Button>
             <Button
-              bg="#B88784"
-              color="#FEF3ED"
-              _hover={{ bg: '#CF9690' }}
+              bg="var(--accent)"
+              color="var(--accent-ink)"
+              _hover={{
+                bg: 'var(--accent-hover)',
+                transform: 'scale(1.02)',
+                boxShadow: 'var(--shadow)',
+              }}
               type="submit"
               isLoading={isSubmitting}
-              borderRadius="12px"
+              borderRadius="full"
               size="sm"
-              px="20px"
+              px="24px"
+              fontWeight="700"
+              transition="all 0.2s ease"
             >
               Save Changes
             </Button>

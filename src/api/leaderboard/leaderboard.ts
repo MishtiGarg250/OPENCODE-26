@@ -1,29 +1,49 @@
-const LEADERBOARD_API_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/events/`;
-type RowObj = {
-	position:number;
+import { registerMentors } from 'constants/Maintainers';
+import { getApiBase } from 'utils/apiBase';
+
+function getLeaderboardApiUrl() {
+  return `${getApiBase()}/api/v1/events/`;
+}
+export type LeaderboardEntry = {
+	position: number | string;
 	name: string;
-	prmerged: string;
-	githubid: string;
-	points: string;
-  avatarUrl: string,
-  prDetailsURL: string,
-  collegeName?: string,
-  graduationYear?: string | number,
+	githubid?: string;
+	prmerged?: string | number;
+	points?: string | number;
+  avatarUrl?: string;
+  prDetailsURL?: string;
+  collegeName?: string;
+  graduationYear?: string | number;
+  year?: string;
+  isMentor?: boolean;
 };
 
-export const FetchedLeaderboard = async (eventName: string): Promise<RowObj[]> => {
+export type RowObj = LeaderboardEntry;
+
+export const FetchedLeaderboard = async (eventName: string): Promise<LeaderboardEntry[]> => {
+
   try {
-    const response = await fetch(`${LEADERBOARD_API_URL}${eventName}/leaderboard`);
+    const response = await fetch(`${getLeaderboardApiUrl()}${eventName}/leaderboard`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch leaderboard data: ${response.statusText}`);
     }
 
     const Leaddata = await response.json();
+    const rows = (Leaddata.data || []) as RowObj[];
+    if (Array.isArray(rows)) {
+      const mentorsFromLead = rows
+        .filter((r) => r.isMentor && r.githubid)
+        .map((r) => r.githubid as string);
+      if (mentorsFromLead.length > 0) {
+        registerMentors(mentorsFromLead);
+      }
+    }
   
-    return Leaddata.data as RowObj[];
+    return rows;
   } catch (error) {
     console.error('Error fetching leaderboard data:', error);
     throw error; 
   }
 };
+

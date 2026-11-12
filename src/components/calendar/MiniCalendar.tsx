@@ -4,10 +4,10 @@ import { Icon, Text, useColorModeValue } from '@chakra-ui/react';
 import { useState } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import './MiniCalendar.css'; // ⬅️ IMPORTANT
+import 'styles/MiniCalendar.css';
 
 import Card from 'components/card/Card';
-import { MdChevronLeft, MdChevronRight } from 'react-icons/md';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function MiniCalendar(props: {
   selectRange?: boolean;
@@ -16,7 +16,7 @@ export default function MiniCalendar(props: {
   const { selectRange = false, ...rest } = props;
   const [value, onChange] = useState<Date | [Date, Date]>(new Date());
 
-  const accentColor = useColorModeValue('#e9a7b2', '#e9a7b2');
+  const accentColor = 'var(--accent)';
 
   return (
     <Card
@@ -31,8 +31,8 @@ export default function MiniCalendar(props: {
         value={value}
         selectRange={selectRange}
         view="month"
-        prevLabel={<Icon as={MdChevronLeft} w="20px" h="20px" />}
-        nextLabel={<Icon as={MdChevronRight} w="20px" h="20px" />}
+        prevLabel={<Icon as={ChevronLeft} w="20px" h="20px" />}
+        nextLabel={<Icon as={ChevronRight} w="20px" h="20px" />}
         tileContent={undefined}
         className="mini-calendar"
       />
@@ -40,7 +40,7 @@ export default function MiniCalendar(props: {
       <Text
         mt="8px"
         fontSize="xs"
-        color={useColorModeValue('gray.500', 'gray.400')}
+        color="var(--fg-muted)"
       >
         Select a date
       </Text>
